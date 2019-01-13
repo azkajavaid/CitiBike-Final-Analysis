@@ -1,0 +1,504 @@
+---
+title: 'Report: New York City on Two Wheels'
+output: html_document
+---
+
+```{r, echo=FALSE,include=FALSE}
+require(ggplot2)
+require(dplyr)
+require(mosaic)
+plotmyFinal<-read.csv("myfinal.csv", as.is=TRUE)
+```
+
+Authors: Ryan Cenek, Pei Gong and Azka Javaid
+
+###Section 1: Introduction
+
+For this project, we investigated the CitiBike dataset, supplementing our analysis with weather data. CitiBike is a public bike-share 
+program in New York City which allows users to pay a daily or weekly fee (these users are called “customers”) or a yearly subscription 
+fee (“subscribers) to gain access to bikes that are docked at stations throughout the city. CitiBikes are commonly used by tourists and 
+commuters going to work. The CitiBike dataset was obtained from the official CitiBike website, and consists of information on all CitiBike
+rides in February, July and October for 2014. The weather dataset was obtained from the National Climatic Data Center (NCDC) Climate Data 
+Online Search (CDO) for February, July and October 2014. Our research question can be summarized as: what are the interesting, unique, or 
+relevant features of the CitiBike user base, and what do we know about users’ behaviors? More specifically, we investigate how weather and
+season affect the volume of users, how to predict whether users will return their bikes late, whether the customers behave differently 
+than subscribers, and whether female and male users behave differently.
+
+  This question is relevant for a number of reasons. Although privately run and sponsored, CitiBike is a public service affiliated with 
+  the New York City government. Thus, New York City voters probably want to know whether this service is really benefitting them. Also, 
+  since CitiBike is a public service, some voters or politicians might find it concerning if certain demographics were benefitting more 
+  than others. If men disproportionately use CitiBikes compared with women, this might be seen as a moral or political issue; even if not,
+  it would suggest that there is a largely untapped market for female CitiBike users that current advertising and marketing strategies 
+  have neglected. Information on predicting lateness is highly relevant because chronic lateness potentially threatens the functioning of 
+  the bikeshare system: if everyone returns their bikes late, then fewer bikes will be available when they are supposed to be. Being able 
+  to predict user volume for a given day would also be incredibly helpful to the CitiBike management, as they could plan ahead for days 
+  where volume will be high by having more support staff ready and strategically schedule bike maintenance and system tests for days when 
+  volume is likely to be low.
+
+
+###Section 2: Data
+
+Dataset1: Each row in the CitiBike dataset (each observational unit) represents one CitiBike trip, information on the trip and the user 
+who tok the trip. The CitiBike dataset contained variables like Trip Duration (seconds), Start Time and Date & Stop Time and Date, Start 
+Station Name & End Station Name, Usertype (Customer = 24-hour pass or 7-day pass user, vs Subscriber = Annual Member), Gender (0=unknown, 
+1=male, 2=female). 
+
+Dataset2: Each row represented weather condition of a single day in NYC JFK Airport, used to represent weather in New York City. The 
+dataset contained predictors like AWND (average wind speed in tenths of meters per second), TMAX (maximum temperature in tenths of degrees 
+Celsius), TMIN (minimum temperature in tenths of degrees Celsius), PRCP (precipitation in tenths of mm) and SNOW (Snowfall in mm). For 
+convenience, SNOW and PRCP were changed to categorical predictors signaling snow and rain (Yes) or no snow and no rain (No). In order to 
+properly account for the changes in the average wind speed, the AWND predictor was transformed to a categorical predictor (CatAWND) with 
+three levels based on the appropriate Beaufort Scale (Light-Gentle breeze, Moderate breeze and Fresh breeze). The TMAX variable was also 
+transformed as DFTMAX, which accounted for the difference between the actual max temperature that day and the average max temperature of 
+the month in degrees Fahrenheit. 
+
+A new dataset is produced by merging the weather and the CitiBike dataset to depict the aggregate bike use and weather condition of a day.
+Each row is a day with weather predictors PRCPY (Yes/No), SNWD (Yes/No), CatAWND (categorical), Month (February, July or October) and 
+DFTMAX (quantitative in degrees Fahrenheit). The aggregate bike use is depicted by predictors including the startday(date), number of 
+rides of each gender and each user type, mean trip duration and  total numRides and SD (standard deviation) of trip duration.   
+
+Note: In the CitiBike dataset, the observations attributed to staff servicing the bikes, trips to or from special “test stations,” 
+were removed. Also, around 189 subscribers reported to be born in 1899 or the early 1900s, which seemed unlikely. Categorization of 
+the date of birth variable into age allowed for the exclusion of such values. The gender and birth year data was not included for 
+customers in the CitiBike dataset. In the weather dataset, missing values were portrayed by -9999. 
+
+We first characterized the CitiBike users over the three months. For this analysis, we calculated the total number of males and females 
+users in February, July and October. We used a barplot to illustrate the difference in the number of rides by gender, leading us to 
+observe that CitiBike users in February, July and October were predominantly male. The volume of users was highest in July for both 
+genders, and there was a greater increase in the number of male users than female users from February to July. 
+
+```{r, echo=FALSE, collapse=TRUE,fig.width=5, fig.height=4}
+M<-c(176526, 569685, 521345)
+Fe<-c(41479, 179322, 154121)
+mnew=data.frame(Males=M, Females = Fe)
+rownames(mnew) <- c("Feb", "July", "Oct")
+mnew <- as.matrix(mnew)
+barplot(mnew, main="Number of Riders by Gender and Month", xlab="Month", col=c("darkblue","red","orange"), beside=TRUE)
+legend("topleft", c("July","Feb","Oct"),
+fill=c("red","blue","orange"))
+```
+
+Considering that the CitiBike usage appeared to be highest in July, it was interesting to analyze whether this increase could be 
+accounted for by the  greater number of tourists we expect to see in NYC in July (when the weather is nicer and students are on break). 
+There is no direct way to identify a CitiBike user as a tourist, but it seems likely that most tourists would not have annual memberships. 
+Thus, the next step was to characterize usertype (Subscribers or Customers). We observed that there are more CitiBike subscribers than 
+customers, even in July. Overall, 97.68% of users were subscribers. We noted that the increase in number of subscribers from February to 
+July was greater than the increase in customers in that time period. July was the highest-volume month for both user types, perhaps 
+because people generally have more time for exploring NYC in the summer than in fall and winter. 
+
+```{r, echo=FALSE, collapse=TRUE, fig.width=5, fig.height=4}
+C<-c(6717, 179322, 64077)
+Sub<-c(218019, 749160, 675717)
+mnew=data.frame(Customers=C, Subscribers = Sub)
+rownames(mnew) <- c("Feb", "July", "Oct")
+mnew <- as.matrix(mnew)
+barplot(mnew, main="Number of Riders by Usertype and Months", xlab="Months", col=c("darkblue","red","orange"), beside=TRUE)
+legend("topleft", c("July","Feb","Oct"),
+fill=c("red","blue","orange"))
+```
+
+
+###Section 3: Analysis
+
+```{r, echo=FALSE, collapse=TRUE}
+plotmyFinal2 <- transform(plotmyFinal, MAWND=AWND/10)
+plotmyFinal2 <- transform(plotmyFinal2, 
+                       CatAWND=cut(MAWND, 
+                                    
+                                   breaks=c(1.8,5.5,8,9.4), 
+                                    
+                                   
+                                   labels=c("Light-Gentle breeze","Moderate breeze","Fresh breeze"),
+                                    include.lowest=TRUE))
+```
+
+#####Characterizing effect of weather on CitiBike users (Additive and Interaction Models):
+
+```{r, echo=FALSE, collapse=TRUE}
+m1=lm(numRides~Month+CatAWND+DFTMAX+PRCPY, data=plotmyFinal2)
+m2=lm(numRides~CatAWND+DFTMAX*Month+PRCPY, data=plotmyFinal2)
+```
+
+In order to analyze the effect of weather on CitiBike usage, we built a model with numRides (number of riders) as the response 
+variable against DFTMAX, Month, PRCPY and CatAWND additive predictors. From anova, all predictors were significant (p-value<0.05). 
+The positive coefficient of 457.76 on DFTMAX indicates that a one-degree increase in difference between daily maximum temperature and 
+average maximum temperature for that month leads to an increase in the number of CitiBike users by about 458. This indicates that 
+CitiBike users prefer higher-than-average max temperature days relative to the average temperature of the current month. The coefficient 
+of 22441.46 on MonthJuly indicates that there is an increase in the  CitiBike users by about 22441 in July relative to February. The 
+coefficient of 18236.82 for MonthOctober indicates that there are about 18237 more CitiBike users in October than in February. For 
+PRCPYYes, the coefficient of -4560.66 indicates that volume of CitiBike users decreases by about 4561 in rain. For CatAWNDModerate breeze,
+the coefficient of -1528.85 indicates that given moderate breeze, volume of users decreases by about 1529 users. In comparison, the volume
+of users decreases by about 4479 (given coefficient of -4478.78) on a fresh breeze day. Generally, CitiBike users prefer no precipitation,
+higher-than-usual temperatures, and low wind speed (Moderate rather than Fresh) as ideal biking conditions. 
+
+  Given that an interaction effect was observed between DFTMAX and Month predictors, we then added an interaction of DFTMAX and Month to 
+  our model. We observed that all coefficients, including the interaction term, were significant (p-value<0.05) from anova. The first 
+  interaction term (DFTMAX:MonthJuly) with the coefficient of 899.4 indicates that the increase in users associated with a one degree 
+  increase in temperature is about 899 individuals greater in July than in February. The increase in users associated with a one degree 
+  increase in temperature is 664 individuals greater in October than in February (as indicated by the 664.3 cofficient). It thus appears 
+  a day with a max temperature higher than the average max temperature of the month is associated with the largest increase in user 
+  volume in July and the smallest increase in volume in February.
+  
+The graph below illustrates the effect of precipitation (no/yes) on the relationship between temperature and number of rides for 
+all three months.
+
+```{r, echo=FALSE, collapse=TRUE, fig.width=6, fig.height=3}
+ggplot(data=plotmyFinal2, aes(x=DFTMAX, y=numRides)) + geom_point()  + aes(colour=Month) + facet_wrap(~PRCPY, ncol=4)  + 
+stat_smooth(method=lm) + labs(title="Number of CitiBike Users vs. Precip and Temp") 
+```
+
+Graphing number of rides against CatAWND:
+
+```{r, echo=FALSE, collapse=TRUE, fig.width=7, fig.height=3}
+ggplot(data=plotmyFinal2, aes(x=Month, y=numRides)) + geom_boxplot()  + aes(colour=Month) + facet_wrap(~CatAWND, ncol=4) + 
+labs(title="Number of CitiBike Users vs. Average Wind Speed") 
+```
+
+#####Checking conditions for the additive model:
+
+```{r, echo=FALSE, collapse=TRUE, fig.width=5, fig.height=3}
+plot(m1, which=2)
+p1 <- histogram(~resid(m1), xlab="Residuals", density=TRUE)
+              #  , par.settings=list(layout.heights=list(layout.heights=list(top.padding=0, main.key.padding = 0, 
+              bottom.padding=0,key.axis.padding = 0,axis.xlab.padding = 0, xlab.key.padding = 0,key.sub.padding = 0)))
+```
+
+
+```{r, echo=F, fig.width=5, fig.height=2}
+print(p1)
+#print(p1,position=c(0,0,0.5,0.5),more=TRUE)
+```
+
+```{r, echo=FALSE, collapse=TRUE}
+set.seed(12)
+coeffHS.actual1<-coef(m1)[2]
+coefVals1 <- rep(NA, 1000)
+for (i in 1:1000) {
+  sim <- plotmyFinal2[sample(nrow(plotmyFinal2), replace=T),]
+  m.tmp <- lm(numRides~CatAWND+DFTMAX+Month+PRCPY, data=sim)
+  coefVals1[i] <- coef(m.tmp)[2]
+}
+p3 <- histogram(~coefVals1)
+print(p3, position=c(0,.5,0.33,1),more=TRUE)
+
+set.seed(13)
+coeffHS.actual2 <- coef(m1)[3]
+coefVals2 <- rep(NA, 1000)
+for (i in 1:1000) {
+  sim <- plotmyFinal2[sample(nrow(plotmyFinal2), replace=T),]
+  m.tmp <- lm(numRides~CatAWND+DFTMAX+Month+PRCPY, data=sim)
+  coefVals2[i] <- coef(m.tmp)[3]
+  }
+p4 <- histogram(~coefVals2)
+print(p4,position=c(.33,.5,0.66,1),more=TRUE)
+
+set.seed(202)
+coeffHS.actual3 <- coef(m1)[4]
+coefVals3 <- rep(NA, 1000)
+for (i in 1:1000) {
+  sim <- plotmyFinal2[sample(nrow(plotmyFinal2), replace=T),]
+  m.tmp <- lm(numRides~CatAWND+DFTMAX+Month+PRCPY, data=sim)
+  coefVals3[i] <- coef(m.tmp)[4]
+  }
+p5 <- histogram(~coefVals3)
+print(p5, position=c(.66,.5,1,1),more=TRUE)
+qs <- quantile(coefVals3, c(0.025, 0.975))
+
+set.seed(100)
+coeffHS.actual4 <- coef(m1)[5]
+coefVals4 <- rep(NA, 1000)
+for (i in 1:1000) {
+  sim <- plotmyFinal2[sample(nrow(plotmyFinal2), replace=T),]
+  m.tmp <- lm(numRides~CatAWND+DFTMAX+Month+PRCPY, data=sim)
+  coefVals4[i] <- coef(m.tmp)[5]
+  }
+p6 <- histogram(~coefVals4)
+print(p6,position=c(0,0,0.33,0.5),more=TRUE)
+
+set.seed(999)
+coeffHS.actual5 <- coef(m1)[6]
+coefVals5 <- rep(NA, 1000)
+for (i in 1:1000) {
+  sim <- plotmyFinal2[sample(nrow(plotmyFinal2), replace=T),]
+  m.tmp <- lm(numRides~CatAWND+DFTMAX+Month+PRCPY, data=sim)
+  coefVals5[i] <- coef(m.tmp)[6]
+  }
+p7 <- histogram(~coefVals5)
+print(p7,position=c(.33,0,.66,0.5),more=TRUE)
+qs <- quantile(coefVals5, c(0.025, 0.975))
+
+set.seed(200)
+coeffHS.actual6 <- coef(m2)[8]
+coefVals6 <- rep(NA, 1000)
+for (i in 1:1000) {
+  sim <- plotmyFinal2[sample(nrow(plotmyFinal2), replace=T),]
+  m.tmp <- lm(numRides~CatAWND+DFTMAX*Month+PRCPY, data=sim)
+  coefVals6[i] <- coef(m.tmp)[8]
+  }
+p8 <- histogram(~coefVals6)
+print(p8,position=c(.66,0,1,0.5),more=TRUE)
+```
+
+coefVals1:Bootstrap MonthJuly confidence interval (CI) (20139.37,24743.56)
+
+coefVals2: Bootstrap MonthOctober CI (12675.37,23798.27).
+
+coefVals3: Bootstrap CatAWNDModerate Breeze CI (-23760.63,-19013.96).
+
+coefVals4: Bootstrap CatAWNDFresh Breeze CI (-6878.785,-2078.768).
+
+coefVals5: Bootstrap DFTMAX CI (-19787.4,-15040.74).
+
+coefVals6: Bootstrap DFTMAX:MonthJuly CI (152.0305,1646.706).
+
+Given that 0 is not included in the confidence interval for MonthJuly coefficient, the MonthJuly predictor is significant in predicting 
+the number of rides. Similar analysis was extended to other predictors and it was observed that all the predictors are signficant at an 
+alpha level of 0.05, because their 95% confidence intervals exclude 0. Note: We could not calculate bootstrap for PRCPY and 
+DFTMAX:MonthOctober since both methods 1 and 2 produce NA for confidence intervals and the file does not knit if the third method for 
+calculating confidence intervals is used. 
+
+#####Effect of weather on Customers (Additive model):
+
+```{r, echo=FALSE, collapse=TRUE}
+m3=lm(Customer~DFTMAX+Month+PRCPY+CatAWND, data=plotmyFinal2)
+```
+
+Given that males, females and subscribers all had trends that were similar to the overall number of riders (as described by the previous
+model), we decided to just focus on CitiBike Customers for this analysis. We built a model with the same predictors as the total number 
+of riders. Surprisingly the DFTMAX and the CatAWND predictors were not significant at an alpha level of 0.05, as revealed by anova. 
+Generally, CitiBike customers prefer no precipitation, higher temperature than the average max temperature of the month and lower average
+wind speed (Moderate rather than Fresh) as ideal biking conditions. Considering that the DFTMAX predictor was not significant, we did not
+interact DFTMAX with the Month predictor.
+
+Graphing Customer rides against DFTMAX, with and without precipitation:
+
+```{r, echo=FALSE, collapse=TRUE, fig.width=7, fig.height=3}
+ggplot(data=plotmyFinal2, aes(x=DFTMAX, y=Customer)) + geom_point()  + aes(colour=Month) + facet_wrap(~PRCPY, ncol=4)  + 
+stat_smooth(method=lm) + labs(title="Number of Customers vs. Precipitation and Temperature") 
+```
+
+Graphing Customer rides against CatAWND:
+
+```{r, echo=FALSE, collapse=TRUE, fig.width=7, fig.height=3}
+ggplot(data=plotmyFinal2, aes(x=Month, y=Customer)) + geom_boxplot()  + aes(colour=Month) + facet_wrap(~CatAWND, ncol=4)  + 
+labs(title="Number of Customers vs. Average Wind") 
+```
+
+#####Analyzing Extreme Trip Durations 
+
+The  trip duration for all users shows a wide range, from as short as 60 seconds to 766108 seconds. The mean percentage of subscribers 
+who go over time is 1.27% which is significantly lower than 19.03%, which is the mean percentage for customers. The ratio for all users
+who go over time is 1.75%, reflecting the fact that most of the users are subscribers. The histograms compare distribution of trip 
+durations between subscribers and customers, comparing the ratios of subscribers and customers who go over time. Note: Customers go 
+over time at 1800 seconds (30 min); subscribers go overtime at 2700 seconds (45 min).
+
+```{r, collapse=TRUE, fig.width=5, fig.height=3}
+NCitiBikeFeb<-read.csv("PeiData1.csv", as.is=TRUE)
+CitiBikeTrip=read.csv("PeiData2.csv",as.is=TRUE)
+max(CitiBikeTrip$tripduration)
+min(CitiBikeTrip$tripduration)
+tally(~TripCat,data=CitiBikeTrip)
+```
+
+Distribution of Trip Duration (Subscribers vs Customers)
+
+```{r,echo=FALSE,fig.keep='last', collapse=TRUE, fig.width=5, fig.height=3}
+NCitiBikeFeb=filter(NCitiBikeFeb,tripduration<3600)
+SubBike1=subset(NCitiBikeFeb, usertype==1)
+p9 <- histogram(~tripduration, data=
+            SubBike1, width=100, nint=10, main="Subscriber duration")
+#ladd(panel.abline(v=2700,col="red",lty=3,add=TRUE))
+print(p9,position=c(0,0,0.5,1),more=TRUE)
+
+SubBike0=subset(NCitiBikeFeb, usertype==0)
+p10 <- histogram(~tripduration, data=
+            SubBike0, width=100, nint=10, main=" Customer duration")
+print(p10,position=c(.5,0,1,1),more=TRUE)
+#ladd(panel.abline(v=1800,col="red",lty=1,add=TRUE))
+#ladd(panel.abline(v=75*60,col="green",lty=4,add=TRUE))
+#ladd(panel.abline(v=105*60,col="purple",lty=5,add=TRUE))
+```
+
+The dataset RatioData is transformed to have 28 rows, where each row represent a single day with daytype (weekend/weekday), weather 
+variables and the ratio of users who go over time. We developed two linear regression models to navigate the factors that might 
+influence the ratio of subscribers and customers separately. Predictors included precipitation(PRCP),  Snow depth(SNWD), deviation of 
+temperature from average temperature of the month(DFTMAX), average wind speed(AWND), and whether the day is a weekend or not(DayType).
+
+For subscribers, predictors PRCP,SNWD,AWND,Daytype are all significant predictors at a=0.01. Snow depth, precipitation and average wind
+speed are positively correlated with overtime ratio, which means the worse the weather conditions are, the higher the percentage of 
+subscribers who go over time.
+
+The model produced is $\hat{SubRatio}$=PRCP*0.003823 + SNWD*0.003693 + AWND*0.0189 + Daytype*0.1438. With a unit(tenth of mm) increase 
+in preciptation, the ratio of subscriber who go over time will increase by 0.38%. R-squared is 0.6619, meaning this is a pretty useful 
+model. Given a unit increase (mm) in snow depth, the ratio of subscriber who go over time will increase by 0.37%. For an unit increase 
+(tenths of m/s) in average wind speed, the ratio of subscribers go over time increase 1.89%. The percentage of subscribers who go over 
+time will increase 14%  if the day is weekend. To our surprise, DFTMAX, which illustrates deviation of max temperature from average 
+monthly temperature, doesn’t have any predictive power in terms of predicting whether a ride will be over time. 
+
+```{r, collapse=TRUE}
+RatioData=read.csv("PeiData4.csv",as.is=TRUE)
+RatioData=RatioData[,c(2:4,8,11,16:19,22)]
+m1=lm(SubRatio~PRCP+SNWD+DFTMAX+AWND+Daytype,data=RatioData)
+```
+
+For customers, the predictors which were significant for subscribers have very low predictive power. None of the predictors are 
+significant at significance level  a=0.05. 
+
+```{r, collapse=TRUE}
+m2=lm(CusRatio~PRCP+SNWD+DFTMAX+AWND+Daytype,data=RatioData)
+```
+
+ 
+#####What are the chances that a given subscriber returns the bike late? {.smaller}
+
+```{r,echo=FALSE, collapse=TRUE} 
+OverSub=read.csv("PeiData5.csv",as.is=TRUE)
+#SnowDepth
+OverSub3=transform(OverSub, SnowCut = cut(SNWD, breaks = 3))
+binned.y <- mean(~OverTime | SnowCut, data = OverSub3)
+binned.x <- mean(~ SNWD| SnowCut, data = OverSub3)
+x1 <-xyplot(logit(binned.y) ~ binned.x,main="logit(late)~Snow Depth")
+print(x1,position=c(0,.5,0.33,1),more=TRUE)
+###Gender linearity assumed
+OverSub0=transform(OverSub, Age = cut(age, breaks = 4)) ##age variable
+binned.y <- mean(~OverTime | Age, data = OverSub)
+binned.x <- mean(~age | Age, data = OverSub)
+x2 <-xyplot(logit(binned.y) ~ binned.x,main="logit(late)~Age")
+print(x2,position=c(.33,.5,.66,1),more=TRUE)
+
+###startHour didn't pass the linearity check
+OverSub1=transform(OverSub, hourCut = cut(startHour, breaks = 5)) ##age variable
+binned.y <- mean(~OverTime | hourCut, data = OverSub1)
+binned.x <- mean(~startHour | hourCut, data = OverSub1)
+x3 <-xyplot(logit(binned.y) ~ log(binned.x),main="logit(late)~log(startHour)")
+print(x3,position=c(.66,.5,1,1),more=TRUE)
+#Precipation 
+OverSub2=transform(OverSub, PreCut = cut(PRCP, breaks = 5)) 
+binned.y <- mean(~OverTime | PreCut, data = OverSub2)
+binned.x <- mean(~ PRCP| PreCut, data = OverSub2)
+x4 <-xyplot(logit(binned.y) ~ binned.x,main="logit(late)~Precipitation")
+print(x4,position=c(0,0,.4,0.5),more=TRUE)
+
+
+#AWND
+OverSub4=transform(OverSub, WindCut = cut(AWND, breaks = 3)) 
+binned.y <- mean(~OverTime | WindCut, data = OverSub4)
+binned.x <- mean(~ AWND|WindCut , data = OverSub4)
+x5 <-xyplot(logit(binned.y) ~ binned.x,main="logit(late)~Wind Speed")
+print(x5,position=c(.4,0,.8,0.5),more=TRUE)
+###startHour didn't pass the linearity check
+```
+
+A logistic model is developed to predict the chance that a given subscriber returns the bike late. Predictors that passed the linearity 
+check are entered into the model and all are significant at the significant level 
+a=0.001.logit($\hat{OverTime}$) =0.0098*age + 0.3211*gender + 0.0011*DFTMAX + 0.0014*PRCP + 0.0036*SNWD + 0.0079*AWND + 0.48*Weekend.
+The weather predictors are positively correlated with the chance that a given subscriber returns the bike late. 
+
+```{r, echo=FALSE, collapse=TRUE}
+m3=glm(OverTime~age+gender+DFTMAX+PRCP+SNWD+AWND+Weekend,data=OverSub,family=binomial)
+```
+
+
+##### What are the chances that a given subscriber is female?
+In the following two models, we predict whether an individual rider is female or male using gender (a binary predictor) and two 
+quantitative weather predictors, PRCP (precipitation in .1 mm) and AWND (average daily wind speed in .1 meters/second).
+
+
+##### Summary of logistic regression model Gender ~ Weekend {.smaller}
+
+```{r,echo=FALSE, collapse=TRUE, fig.width=4, fig.height=2}
+SubBike1 <- transform(SubBike1, 
+                        Weekend=ifelse(as.numeric(startDoW)<6,0,1))
+SubBike1Known <- filter(SubBike1, gender > 0)
+SubBike1Known <- transform(SubBike1Known, gender = ifelse(gender==1,0,1))
+gender1 <- glm(gender~Weekend,data=SubBike1Known,family=binomial)
+plotFun(makeFun(gender1))
+x6 <- xyplot(gender~jitter(Weekend),data=SubBike1Known,type=c("p","r"))
+```
+
+```{r,echo=FALSE,collapse=TRUE,fig.width=5, fig.height=3}
+summary(gender1)
+anova(gender1,test="Chisq")
+plot(resid(gender1, type="pearson"))
+```
+
+Conditions: We can assume linearity because the one predictor in the model is a binary variable. We expect the gender of any one rider 
+to be independent of the gender of other riders, so the independence condition is met. We expect gender to roughly follow a binomial 
+model conditional on a fixed value for weekend, so the randomness assumption seems reasonable.
+
+The model that is produced is: logit($\hat{Gender}$)=-1.597612 + 0.455288I(Weekend). The intercept of -1.597612 means that the predicted 
+odds of a rider being female on a weekday are 0.2023792 (equivalent to a probability of 0.1683156). The coefficient of 0.455288 means 
+that the predicted odds of a rider being female on a weekend are 0.3190766 (equivalent to a probability of 0.2418939). We find a Wald's 
+statistic of 39.6 for the coefficient of Weekend, corresponding to a p-value of less than 2e-16, which is less than the alpha-level of 0. 
+The likelihood ratio test results in a p-value of less than 2.2e-16 for the coefficient of Weekend, also less than alpha=.05. Thus, 
+Weekend is a significant predictor of logit($\hat{Gender}$) in this model. A plot of Pearson's residuals shows no potentially problematic
+outliers.
+
+
+##### Model 2: Gender ~ Precipitation + Average Wind Speed {.smaller}
+
+
+```{r,echo=FALSE, collapse=TRUE,fig.width=5, fig.height=2}
+merged=read.csv("Ryan.csv", as.is=TRUE)
+merged <- filter(merged, gender > 0)
+merged <- transform(merged, gender = ifelse(gender==1,0,1))
+gender2 <- glm(gender~PRCP+AWND,data=merged,family=binomial)
+merged <- transform(merged, unCat = cut(PRCP, breaks = 10))
+binned.y <- mean(~gender | unCat, data = merged)
+binned.x <- mean(~PRCP | unCat, data = merged)
+
+xPRCP <- xyplot(logit(binned.y) ~ binned.x,main="logit(female)~PRCP")
+print(xPRCP,position=c(0,0,.5,1),more=TRUE)
+
+merged <- transform(merged, unCat = cut(AWND, breaks = 10))
+binned.y <- mean(~gender | unCat, data = merged)
+binned.x <- mean(~PRCP | unCat, data = merged)
+
+xAWND <- xyplot(logit(binned.y) ~ binned.x,main="logit(female)~AWND")
+print(xAWND,position=c(.5,0,1,1),more=TRUE)
+```
+```{r,echo=FALSE, collapse=TRUE,fig.width=5, fig.height=4}
+plot(resid(gender2,type="pearson"))
+```
+```{r,echo=FALSE, collapse=TRUE, fig.width=5, fig.height=3}
+reduced <- filter(merged, resid(gender2, type="pearson") < 3)
+gender3 <- glm(gender~PRCP+AWND,data=reduced,family=binomial)
+```
+
+Conditions: We must check the conditions for each predictor. The empirical logit plots for precipitation (PRCP) and average wind 
+speed (AWND) both look roughly linear, so the linearity assumption seems reasonable. We expect the gender of any one rider to be
+independent of the gender of other riders, so the independence condition is met. We expect gender to roughly follow a binomial model
+conditional on a fixed value for weekend, so the randomness assumption seems reasonable.
+
+The model that is produced is: logit($\hat{Gender}$)=-1.0892486 + -0.0014792PRCP + -0.0071283AWND. The intercept -1.0892486 means that, 
+with no precipitation or wind, the predicted odds of a rider being female are 0.3364692. The coefficient of PRCP -0.0014792 means that 
+the predicted odds of a rider being female decrease by 0.0014781 for every .1 mm increase in precipitation. The coefficient of 
+AWND -0.0071283 means that the predicted odds of a rider being female decrease by 0.007103 for every .1 meter/second increase in 
+average wind speed. We find Wald's statistics of -11.93 for PRCP and -21.55 for AWND, both corresponding to a p-value less than the 
+alpha-level of .05. The likelihood ratio test for the two predictors results in p-values less than 2.2e-16 for both, smaler than the 
+alpha level. Thus, PRCP and AWND are significant predictors of logit($\hat{Gender}$) in this model. A plot of Pearson's residuals shows 
+a potentially problematic outlier with a Pearson's residual larger than 3. When we re-fit the model without the outlier, we get the model
+logit($\hat{Gender}$)=-1.0685018 + -0.0018987PRCP + -0.0075089AWND. The coefficients for the model with and without the outlier are 
+extremely similar, so the outlier does not seem to pose a problem.
+
+###Section 4: Conclusions
+From our analysis, we’ve developed a strong understanding of the behavior and demographics of CitiBike users. First, we found that 
+CitiBike users are predominantly male and predominantly subscribers across all three months. Next, we constructed models to predict the 
+effect of weather on user volume, finding that users generally prefer no precipitation, moderate wind speed, and warmer-than-usual 
+weather, and that their preference for warm weather is strongest in July and weakest in February. (For customers, we were surprised to
+find that wind speed and temperature were not significant predictors of volume.) Next, we looked at trip duration, finding that 
+customers were more prone to going over their 30 minute limit than subscribers were to going over their 45 minute limit. We found that 
+snow depth, high wind, precipitation, and the day being a weekend all corresponded to subscribers going over time. Finally, we modeled 
+the gender of the riders, finding that, while the vast majority of trips were taken by men, the gender balance for trips taken on 
+weekends and days with less precipitation and wind was somewhat more even. 
+
+We do have some concerns about the data. One problem is that bikes are sometimes accidentally undocked and redocked during the docking 
+process, leading to large numbers of short “rides” being recorded which are not actual rides. Our analysis could have benefitted from 
+more information being gathered from users, such as address and race, which would give us a better picture of what kinds of demographics
+the CitiBike program appeals to. If we could control the data collection, we would ask those questions. We would also want to ask the
+same set of questions to all users; we found it very limiting to look at gender when we only had gender data for subscribers. 
+Furthermore, the data we have does not identify specific users, so we do not know whether any two rides were taken by the same user. 
+It would be interesting to see information like this, for example, to see whether there are customers who are frequently using CitiBike,
+which would raise the question of why they chose not to subscribe annually. Finally, it would be interesting to compare our datasets 
+with New York City traffic data from the same periods, to see whether car traffic discourages or encourages CitiBike usage, and to see 
+if the predictors for CitiBike usage also predict traffic.
