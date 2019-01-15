@@ -1,5 +1,5 @@
 
-This project explored how volume of CitiBike usage in New York City in February, July and October in 2014 differs by weather patterns. 
+This project explored how volume of CitiBike use in New York City in February, July and October in 2014 differs by weather patterns. 
 We were also interested in assessing how CitiBike use differs for weekend/weekday status, for males/females users as well as for
 CitiBike subscribers/customers. We obtained datasets from the CitiBike website and weather data from the National Climatic Data Center 
 (NCDC) Climate Data Online Search (CDO). Our analysis was performed in R and included techniques like data cleaning, aggregating,
